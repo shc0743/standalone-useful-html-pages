@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>井字棋游戏</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #game-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #tic-tac-toe {
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid #333;
+        }
+        
+        #tic-tac-toe:focus {
+            outline: 3px solid #4a90e2;
+        }
+        
+        #status {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            min-height: 1.5em;
+        }
+        
+        #restart {
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #restart:hover {
+            background-color: #357abd;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>井字棋游戏</h1>
+    <div id="status">你的回合 (X)，使用方向键或WASD移动，按Enter下棋</div>
+    <div id="game-container">
+        <canvas id="tic-tac-toe" width="300" height="300" tabindex="0" role="grid" aria-label="井字棋游戏棋盘"></canvas>
+    </div>
+    <button id="restart">重新开始</button>
+    <div class="instructions">
+        <p>使用方向键或WASD移动选择格子，按Enter键下棋</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('tic-tac-toe');
+            const ctx = canvas.getContext('2d');
+            const statusDisplay = document.getElementById('status');
+            const restartButton = document.getElementById('restart');
+            
+            // 游戏状态
+            let board = Array(9).fill(null);
+            let currentPlayer = 'X'; // 玩家是X，电脑是O
+            let gameActive = true;
+            let selectedCell = 0; // 0-8，表示当前选中的格子
+            
+            // 可访问性 - 为每个格子创建虚拟元素
+            const cellRoles = Array.from({ length: 9 }, (_, i) => {
+                const cell = document.createElement('div');
+                cell.setAttribute('role', 'gridcell');
+                cell.setAttribute('aria-label', `格子 ${Math.floor(i / 3) + 1} 行 ${(i % 3) + 1} 列`);
+                cell.setAttribute('data-index', i);
+                return cell;
+            });
+            
+            // 绘制棋盘
+            function drawBoard() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                
+                // 绘制网格线
+                for (let i = 1; i < 3; i++) {
+                    // 垂直线
+                    ctx.beginPath();
+                    ctx.moveTo(i * 100, 0);
+                    ctx.lineTo(i * 100, 300);
+                    ctx.stroke();
+                    
+                    // 水平线
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * 100);
+                    ctx.lineTo(300, i * 100);
+                    ctx.stroke();
+                }
+                
+                // 绘制选中的格子高亮
+                if (gameActive && currentPlayer === 'X') {
+                    const row = Math.floor(selectedCell / 3);
+                    const col = selectedCell % 3;
+                    ctx.fillStyle = 'rgba(74, 144, 226, 0.2)';
+                    ctx.fillRect(col * 100, row * 100, 100, 100);
+                }
+                
+                // 绘制X和O
+                board.forEach((cell, index) => {
+                    if (cell) {
+                        const row = Math.floor(index / 3);
+                        const col = index % 3;
+                        const x = col * 100 + 50;
+                        const y = row * 100 + 50;
+                        
+                        if (cell === 'X') {
+                            ctx.strokeStyle = '#e74c3c';
+                            ctx.lineWidth = 4;
+                            ctx.beginPath();
+                            ctx.moveTo(x - 30, y - 30);
+                            ctx.lineTo(x + 30, y + 30);
+                            ctx.moveTo(x + 30, y - 30);
+                            ctx.lineTo(x - 30, y + 30);
+                            ctx.stroke();
+                        } else {
+                            ctx.strokeStyle = '#2ecc71';
+                            ctx.lineWidth = 4;
+                            ctx.beginPath();
+                            ctx.arc(x, y, 30, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    }
+                });
+            }
+            
+            // 检查胜利条件
+            function checkWinner() {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // 行
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // 列
+                    [0, 4, 8], [2, 4, 6]             // 对角线
+                ];
+                
+                for (const pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        return board[a];
+                    }
+                }
+                
+                return board.includes(null) ? null : 'draw';
+            }
+            
+            // AI移动 - 使用极小化极大算法
+            function aiMove() {
+                // 简单延迟，让玩家看到AI的思考过程
+                setTimeout(() => {
+                    // 检查AI是否能立即获胜
+                    for (let i = 0; i < 9; i++) {
+                        if (!board[i]) {
+                            board[i] = 'O';
+                            if (checkWinner() === 'O') {
+                                handleGameOver();
+                                drawBoard();
+                                return;
+                            }
+                            board[i] = null;
+                        }
+                    }
+                    
+                    // 检查是否需要阻止玩家获胜
+                    for (let i = 0; i < 9; i++) {
+                        if (!board[i]) {
+                            board[i] = 'X';
+                            if (checkWinner() === 'X') {
+                                board[i] = 'O';
+                                handleGameOver();
+                                drawBoard();
+                                return;
+                            }
+                            board[i] = null;
+                        }
+                    }
+                    
+                    // 优先选择中心
+                    if (!board[4]) {
+                        board[4] = 'O';
+                        handleGameOver();
+                        drawBoard();
+                        return;
+                    }
+                    
+                    // 优先选择角落
+                    const corners = [0, 2, 6, 8];
+                    for (const corner of corners) {
+                        if (!board[corner]) {
+                            board[corner] = 'O';
+                            handleGameOver();
+                            drawBoard();
+                            return;
+                        }
+                    }
+                    
+                    // 最后选择边
+                    for (let i = 0; i < 9; i++) {
+                        if (!board[i]) {
+                            board[i] = 'O';
+                            handleGameOver();
+                            drawBoard();
+                            return;
+                        }
+                    }
+                }, 500);
+            }
+            
+            // 处理游戏结束
+            function handleGameOver() {
+                const winner = checkWinner();
+                
+                if (winner) {
+                    gameActive = false;
+                    if (winner === 'draw') {
+                        statusDisplay.textContent = '平局！';
+                        canvas.setAttribute('aria-label', '游戏结束，平局');
+                    } else {
+                        const winnerName = winner === 'X' ? '你赢了！' : '电脑赢了！';
+                        statusDisplay.textContent = winnerName;
+                        canvas.setAttribute('aria-label', `游戏结束，${winnerName}`);
+                    }
+                } else {
+                    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                    if (currentPlayer === 'X') {
+                        statusDisplay.textContent = '你的回合 (X)，使用方向键或WASD移动，按Enter下棋';
+                        canvas.focus();
+                    } else {
+                        statusDisplay.textContent = '电脑思考中...';
+                        aiMove();
+                    }
+                }
+            }
+            
+            // 处理玩家移动
+            function makeMove(index) {
+                if (!gameActive || currentPlayer !== 'X' || board[index]) return;
+                
+                board[index] = 'X';
+                drawBoard();
+                handleGameOver();
+            }
+            
+            // 键盘控制
+            function handleKeyDown(e) {
+                if (!gameActive || currentPlayer !== 'X') return;
+                
+                const key = e.key.toLowerCase();
+                let newSelectedCell = selectedCell;
+                
+                // 处理移动
+                if (key === 'arrowleft' || key === 'a') {
+                    newSelectedCell = selectedCell - 1;
+                    if (selectedCell % 3 === 0) newSelectedCell = selectedCell + 2;
+                } else if (key === 'arrowright' || key === 'd') {
+                    newSelectedCell = selectedCell + 1;
+                    if (selectedCell % 3 === 2) newSelectedCell = selectedCell - 2;
+                } else if (key === 'arrowup' || key === 'w') {
+                    newSelectedCell = selectedCell - 3;
+                    if (selectedCell < 3) newSelectedCell = selectedCell + 6;
+                } else if (key === 'arrowdown' || key === 's') {
+                    newSelectedCell = selectedCell + 3;
+                    if (selectedCell > 5) newSelectedCell = selectedCell - 6;
+                } else if (key === 'enter' || key === ' ') {
+                    makeMove(selectedCell);
+                    return;
+                }
+                
+                // 更新选中的格子
+                if (newSelectedCell !== selectedCell && newSelectedCell >= 0 && newSelectedCell < 9) {
+                    selectedCell = newSelectedCell;
+                    drawBoard();
+                    
+                    // 更新可访问性焦点
+                    const row = Math.floor(selectedCell / 3) + 1;
+                    const col = (selectedCell % 3) + 1;
+                    canvas.setAttribute('aria-activedescendant', `cell-${selectedCell}`);
+                    cellRoles[selectedCell].setAttribute('aria-selected', 'true');
+                    
+                    // 朗读当前选中的格子
+                    const liveRegion = document.getElementById('live-region') || createLiveRegion();
+                    liveRegion.textContent = `选中 ${row} 行 ${col} 列`;
+                }
+            }
+            
+            // 创建朗读区域
+            function createLiveRegion() {
+                const liveRegion = document.createElement('div');
+                liveRegion.id = 'live-region';
+                liveRegion.setAttribute('aria-live', 'polite');
+                liveRegion.setAttribute('aria-atomic', 'true');
+                liveRegion.style.position = 'absolute';
+                liveRegion.style.left = '-9999px';
+                document.body.appendChild(liveRegion);
+                return liveRegion;
+            }
+            
+            // 重置游戏
+            function restartGame() {
+                board = Array(9).fill(null);
+                currentPlayer = 'X';
+                gameActive = true;
+                selectedCell = 0;
+                statusDisplay.textContent = '你的回合 (X)，使用方向键或WASD移动，按Enter下棋';
+                canvas.setAttribute('aria-label', '井字棋游戏棋盘');
+                drawBoard();
+                canvas.focus();
+                
+                // 重置可访问性状态
+                cellRoles.forEach(cell => cell.setAttribute('aria-selected', 'false'));
+            }
+            
+            // 初始化游戏
+            function init() {
+                drawBoard();
+                canvas.focus();
+                
+                // 事件监听
+                canvas.addEventListener('keydown', handleKeyDown);
+                restartButton.addEventListener('click', restartGame);
+                
+                // 点击支持（可选）
+                canvas.addEventListener('click', (e) => {
+                    if (!gameActive || currentPlayer !== 'X') return;
+                    
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    const col = Math.floor(x / 100);
+                    const row = Math.floor(y / 100);
+                    const index = row * 3 + col;
+                    
+                    makeMove(index);
+                });
+            }
+            
+            init();
+        });
+    </script>
+</body>
+</html>

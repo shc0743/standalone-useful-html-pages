@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>十六进制转C数组工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .output {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>十六进制转C数组工具</h1>
+    <div class="container">
+        <div>
+            <h3>输入十六进制数据（用空格或换行分隔）：</h3>
+            <textarea id="hexInput" placeholder="例如：53 56 57 55 48 83 EC 20 48 B8 20 B1 A3 48 F6 7F 00 00"></textarea>
+        </div>
+        <button onclick="convertToCArray()">转换为C数组</button>
+        <div>
+            <h3>输出结果：</h3>
+            <div id="output" class="output"></div>
+        </div>
+    </div>
+
+    <script>
+        function convertToCArray() {
+            const hexInput = document.getElementById('hexInput').value;
+            const outputElement = document.getElementById('output');
+
+            try {
+                // 清理输入：替换所有连续空白字符为单个空格，然后分割
+                const cleanedInput = hexInput.replace(/[\s\n\r]+/g, ' ').trim();
+                if (!cleanedInput) {
+                    outputElement.textContent = "请输入有效的十六进制数据";
+                    return;
+                }
+
+                const hexBytes = cleanedInput.split(' ');
+                let validHexBytes = [];
+
+                // 验证每个字节并添加0x前缀
+                for (let byte of hexBytes) {
+                    // 确保字节长度为1或2（如 "A" 或 "FF"）
+                    if (byte.length === 1 || byte.length === 2) {
+                        // 验证是否为有效的十六进制
+                        if (/^[0-9A-Fa-f]{1,2}$/.test(byte)) {
+                            validHexBytes.push(`0x${byte.toUpperCase()}`);
+                        } else {
+                            throw new Error(`无效的十六进制字节: ${byte}`);
+                        }
+                    } else {
+                        throw new Error(`无效的十六进制字节长度: ${byte}`);
+                    }
+                }
+
+                if (validHexBytes.length === 0) {
+                    throw new Error("没有找到有效的十六进制字节");
+                }
+
+                // 格式化输出，每行12个元素
+                let formattedOutput = "unsigned char payload[] = {";
+                for (let i = 0; i < validHexBytes.length; i++) {
+                    if (i % 12 === 0) {
+                        formattedOutput += "\n    ";
+                    }
+                    formattedOutput += validHexBytes[i];
+                    if (i !== validHexBytes.length - 1) {
+                        formattedOutput += ", ";
+                    }
+                }
+                formattedOutput += "\n};";
+                formattedOutput += `\n\n// 共 ${validHexBytes.length} 字节`;
+
+                outputElement.textContent = formattedOutput;
+
+            } catch (error) {
+                outputElement.textContent = `错误: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

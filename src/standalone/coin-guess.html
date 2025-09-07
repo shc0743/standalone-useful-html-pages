@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安全猜硬币游戏 - 大数定律模拟</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            padding: 30px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #3498db, #2c3e50);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .game-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .coin-container {
+            flex: 1;
+            min-width: 300px;
+            background: linear-gradient(to bottom right, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .coin {
+            width: 180px;
+            height: 180px;
+            margin: 20px auto;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffd700, #daa520);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #8b7500;
+            box-shadow: 
+                0 0 15px rgba(0, 0, 0, 0.3),
+                inset 0 -8px 15px rgba(0, 0, 0, 0.3),
+                inset 0 8px 15px rgba(255, 255, 255, 0.5);
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .coin.flip {
+            transform: rotateY(720deg);
+        }
+        
+        .coin::before {
+            content: "";
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            right: 5%;
+            bottom: 5%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%);
+            z-index: 1;
+        }
+        
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #heads {
+            background: linear-gradient(to right, #3498db, #2980b9);
+            color: white;
+        }
+        
+        #tails {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            min-height: 30px;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        
+        .correct {
+            background-color: rgba(46, 204, 113, 0.2);
+            color: #27ae60;
+        }
+        
+        .incorrect {
+            background-color: rgba(231, 76, 60, 0.2);
+            color: #c0392b;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 25px 0;
+            gap: 15px;
+        }
+        
+        .stat-box {
+            flex: 1;
+            padding: 15px;
+            background: linear-gradient(to bottom right, #f1f2f6, #dfe4ea);
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-box h3 {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+        }
+        
+        .stat-box .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        .simulation-section {
+            flex: 1;
+            min-width: 300px;
+            background: linear-gradient(to bottom right, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .simulation-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        #simulate-btn {
+            background: linear-gradient(to right, #9b59b6, #8e44ad);
+            color: white;
+            align-self: flex-end;
+            padding: 12px 25px;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #2ecc71, #27ae60);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .simulation-results {
+            margin-top: 25px;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .results-content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .result-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px;
+            background: linear-gradient(to bottom right, #f1f2f6, #dfe4ea);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .result-box h3 {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        
+        .result-value {
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin-top: 25px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .security-badge {
+            text-align: center;
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(46, 204, 113, 0.15);
+            border-radius: 8px;
+            font-weight: 600;
+            color: #27ae60;
+        }
+        
+        .explanation {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .explanation h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .explanation p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .game-section {
+                flex-direction: column;
+            }
+            
+            .coin-container, .simulation-section {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>安全猜硬币游戏</h1>
+            <p class="subtitle">使用密码学安全的随机数生成器 + 大数定律模拟</p>
+        </header>
+        
+        <div class="game-section">
+            <div class="coin-container">
+                <h2>单次猜硬币</h2>
+                <div class="coin" id="coin">?</div>
+                
+                <div class="buttons">
+                    <button id="heads">
+                        <span>正面</span>
+                    </button>
+                    <button id="tails">
+                        <span>反面</span>
+                    </button>
+                </div>
+                
+                <div id="result"></div>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <h3>总次数</h3>
+                        <div class="value" id="total">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <h3>猜中次数</h3>
+                        <div class="value" id="wins">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <h3>胜率</h3>
+                        <div class="value" id="rate">0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="simulation-section">
+                <h2>大数定律模拟</h2>
+                <p>通过大量实验观察概率收敛</p>
+                
+                <div class="simulation-controls">
+                    <div class="input-group">
+                        <label for="simulation-count">模拟次数 (最多10亿次)</label>
+                        <input type="text" id="simulation-count" value="1000" placeholder="输入模拟次数">
+                    </div>
+                    <button id="simulate-btn">
+                        <span>开始模拟</span>
+                    </button>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-header">
+                        <span>进度</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+                
+                <div class="simulation-results">
+                    <div class="results-header">
+                        <h3>模拟结果</h3>
+                    </div>
+                    <div class="results-content">
+                        <div class="result-box">
+                            <h3>正面次数</h3>
+                            <div class="result-value" id="sim-heads">0</div>
+                        </div>
+                        <div class="result-box">
+                            <h3>反面次数</h3>
+                            <div class="result-value" id="sim-tails">0</div>
+                        </div>
+                        <div class="result-box">
+                            <h3>正面比例</h3>
+                            <div class="result-value" id="sim-heads-rate">0.00%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="probability-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h3>大数定律原理</h3>
+            <p>大数定律指出，随着试验次数的增加，随机事件的相对频率会趋近于其理论概率。在这个实验中，随着抛硬币次数的增加，正面出现的比例会越来越接近50%。</p>
+            <p>本实验使用密码学安全的随机数生成器（crypto.getRandomValues），确保结果真正随机且不可预测。</p>
+        </div>
+        
+        <div class="security-badge">
+            🔒 使用 crypto.getRandomValues() 生成安全随机数
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const coin = document.getElementById('coin');
+        const headsBtn = document.getElementById('heads');
+        const tailsBtn = document.getElementById('tails');
+        const resultDisplay = document.getElementById('result');
+        const totalDisplay = document.getElementById('total');
+        const winsDisplay = document.getElementById('wins');
+        const rateDisplay = document.getElementById('rate');
+        const simCountInput = document.getElementById('simulation-count');
+        const simulateBtn = document.getElementById('simulate-btn');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const simHeads = document.getElementById('sim-heads');
+        const simTails = document.getElementById('sim-tails');
+        const simHeadsRate = document.getElementById('sim-heads-rate');
+        const probabilityChart = document.getElementById('probability-chart');
+        
+        // 游戏状态
+        let totalGames = 0;
+        let wins = 0;
+        let simulationRunning = false;
+        
+        // 使用 crypto.getRandomValues 生成安全的随机布尔值
+        function secureRandomBoolean() {
+            const array = new Uint32Array(1);
+            globalThis.crypto.getRandomValues(array);
+            return array[0] % 2 === 0;
+        }
+        
+        // 安全的硬币翻转函数
+        function secureFlipCoin() {
+            return secureRandomBoolean() ? '正面' : '反面';
+        }
+        
+        // 处理猜测
+        function makeGuess(userGuess) {
+            if (simulationRunning) return;
+            
+            headsBtn.disabled = true;
+            tailsBtn.disabled = true;
+            resultDisplay.textContent = '';
+            
+            coin.textContent = '';
+            coin.classList.add('flip');
+            
+            setTimeout(() => {
+                const result = secureFlipCoin();
+                coin.textContent = result;
+                coin.classList.remove('flip');
+                
+                const isCorrect = userGuess === result;
+                
+                totalGames++;
+                if (isCorrect) {
+                    wins++;
+                    resultDisplay.textContent = '恭喜你猜对了！';
+                    resultDisplay.className = 'correct';
+                } else {
+                    resultDisplay.textContent = `很遗憾，是${result}，你猜错了。`;
+                    resultDisplay.className = 'incorrect';
+                }
+                
+                updateStats();
+                
+                headsBtn.disabled = false;
+                tailsBtn.disabled = false;
+            }, 600);
+        }
+        
+        // 更新统计数据
+        function updateStats() {
+            totalDisplay.textContent = totalGames;
+            winsDisplay.textContent = wins;
+            const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+            rateDisplay.textContent = `${winRate}%`;
+        }
+        
+        // 初始化事件监听
+        headsBtn.addEventListener('click', () => makeGuess('正面'));
+        tailsBtn.addEventListener('click', () => makeGuess('反面'));
+        
+        // 检查浏览器是否支持 crypto.getRandomValues
+        if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
+            alert('警告：您的浏览器不支持 crypto.getRandomValues，将回退到 Math.random()');
+            window.secureFlipCoin = function() {
+                return Math.random() < 0.5 ? '正面' : '反面';
+            };
+        }
+        
+        // 大数定律模拟功能
+        simulateBtn.addEventListener('click', startSimulation);
+        
+        function startSimulation() {
+            if (simulationRunning) return;
+            
+            const countStr = simCountInput.value.trim();
+            if (!countStr) {
+                alert('请输入模拟次数');
+                return;
+            }
+            
+            let count;
+            try {
+                // 使用BigInt处理大数字
+                count = BigInt(countStr);
+            } catch (e) {
+                alert('请输入有效的数字');
+                return;
+            }
+            
+            if (count <= 0) {
+                alert('模拟次数必须大于0');
+                return;
+            }
+            
+            // 限制最大次数为10亿
+            if (count > 1000000000) {
+                alert('模拟次数不能超过1,000,000,000');
+                return;
+            }
+            
+            // 创建Web Worker
+            const worker = new Worker(URL.createObjectURL(new Blob([`
+                self.onmessage = function(e) {
+                    const count = e.data;
+                    let heads = 0;
+                    let tails = 0;
+                    const array = new Uint32Array(1);
+                    
+                    // 每完成1%报告一次进度
+                    const reportInterval = count > 1000 ? Number(count / 100n) : 10;
+                    let nextReport = reportInterval;
+                    
+                    for (let i = 0n; i < count; i++) {
+                        crypto.getRandomValues(array);
+                        if (array[0] % 2 === 0) {
+                            heads++;
+                        } else {
+                            tails++;
+                        }
+                        
+                        // 报告进度
+                        if (i >= nextReport) {
+                            const progress = Math.round(Number(i) / Number(count) * 100);
+                            self.postMessage({ type: 'progress', progress });
+                            nextReport += reportInterval;
+                        }
+                    }
+                    
+                    self.postMessage({ type: 'result', heads, tails });
+                };
+            `], { type: 'text/javascript' })));
+            
+            // 初始化UI状态
+            simulationRunning = true;
+            simulateBtn.disabled = true;
+            headsBtn.disabled = true;
+            tailsBtn.disabled = true;
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            simHeads.textContent = '0';
+            simTails.textContent = '0';
+            simHeadsRate.textContent = '0.00%';
+            
+            // 监听Worker消息
+            worker.onmessage = function(e) {
+                const data = e.data;
+                
+                if (data.type === 'progress') {
+                    // 更新进度条
+                    progressFill.style.width = `${data.progress}%`;
+                    progressText.textContent = `${data.progress}%`;
+                } else if (data.type === 'result') {
+                    // 更新结果
+                    simHeads.textContent = data.heads.toLocaleString();
+                    simTails.textContent = data.tails.toLocaleString();
+                    const rate = (data.heads / (data.heads + data.tails)) * 100;
+                    simHeadsRate.textContent = `${rate.toFixed(2)}%`;
+                    
+                    // 完成进度
+                    progressFill.style.width = '100%';
+                    progressText.textContent = '100%';
+                    
+                    // 更新游戏总统计
+                    totalGames += Number(data.heads + data.tails);
+                    wins += data.heads; // 假设每次猜正面
+                    updateStats();
+                    
+                    // 重置状态
+                    simulationRunning = false;
+                    simulateBtn.disabled = false;
+                    headsBtn.disabled = false;
+                    tailsBtn.disabled = false;
+                    
+                    // 终止Worker
+                    worker.terminate();
+                }
+            };
+            
+            // 启动Worker
+            worker.postMessage(count);
+        }
+        
+        // 初始化图表
+        function initChart() {
+            const ctx = probabilityChart.getContext('2d');
+            
+            // 创建渐变
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, 'rgba(46, 204, 113, 0.8)');
+            gradient.addColorStop(1, 'rgba(46, 204, 113, 0.2)');
+            
+            // 绘制参考线
+            ctx.beginPath();
+            ctx.moveTo(0, 100);
+            ctx.lineTo(probabilityChart.width, 100);
+            ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+            
+            // 绘制理论概率线
+            ctx.beginPath();
+            ctx.moveTo(0, 100);
+            ctx.lineTo(probabilityChart.width, 100);
+            ctx.strokeStyle = 'rgba(52, 152, 219, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.closePath();
+            
+            // 添加文本
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '14px Arial';
+            ctx.fillText('50%理论概率', 10, 95);
+        }
+        
+        // 初始化页面
+        window.onload = function() {
+            initChart();
+        };
+    </script>
+</body>
+</html>

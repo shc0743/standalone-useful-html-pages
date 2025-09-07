@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown编译器</title>
+    <!-- 引入marked.js库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+        }
+        .editor-pane, .preview-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .preview {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Markdown编译器</h1>
+    
+    <div class="container">
+        <div class="editor-pane">
+            <label for="markdown-input">Markdown输入：</label>
+            <textarea id="markdown-input" placeholder="在这里输入Markdown内容..."></textarea>
+            <button id="compile-btn">编译为HTML</button>
+        </div>
+        
+        <div class="preview-pane">
+            <label>HTML预览：</label>
+            <div id="html-preview" class="preview"></div>
+            <button id="copy-btn">复制HTML代码</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const markdownInput = document.getElementById('markdown-input');
+            const htmlPreview = document.getElementById('html-preview');
+            const compileBtn = document.getElementById('compile-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            
+            // 配置marked
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+            
+            // 编译Markdown
+            function compileMarkdown() {
+                const markdown = markdownInput.value;
+                const html = marked.parse(markdown);
+                htmlPreview.innerHTML = html;
+            }
+            
+            // 初始化预览
+            compileMarkdown();
+            
+            // 绑定事件
+            compileBtn.addEventListener('click', compileMarkdown);
+            
+            // 实时预览（可选）
+            markdownInput.addEventListener('input', function() {
+                compileMarkdown();
+            });
+            
+            // 复制HTML代码
+            copyBtn.addEventListener('click', function() {
+                const html = htmlPreview.innerHTML;
+                navigator.clipboard.writeText(html).then(() => {
+                    alert('HTML代码已复制到剪贴板！');
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    // 备用复制方法
+                    const textarea = document.createElement('textarea');
+                    textarea.value = html;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    alert('HTML代码已复制到剪贴板！');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

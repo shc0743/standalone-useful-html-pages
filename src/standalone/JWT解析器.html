@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>在线 JWT 解析器</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--text:#e6eef8;--muted:#9fb0c8;--accent:#7dd3fc}
+    html,body{height:100%;margin:0;font-family: Consolas, "NSimSun", monospace;background:linear-gradient(180deg,#071023 0%, #071a2a 100%);color:var(--text)}
+    .wrap{max-width:980px;margin:28px auto;padding:20px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,.6)}
+    h1{font-size:20px;margin:0 0 12px;color:var(--accent)}
+    p.lead{margin:0 0 18px;color:var(--muted);font-size:13px}
+    .row{display:flex;gap:12px}
+    .col{flex:1;min-width:0}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    textarea{width:100%;min-height:120px;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text);resize:vertical;font-family:inherit;font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center;margin:12px 0}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer;font-family:inherit}
+    button.primary{background:linear-gradient(90deg,#065f46,#0ea5a3);border:none;color:#001219}
+    .parts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+    .part{background:var(--card);padding:12px;border-radius:8px;min-height:140px;overflow:auto}
+    pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:13px}
+    code{font-family:inherit}
+    .muted{color:var(--muted)}
+    .footer{margin-top:14px;font-size:12px;color:var(--muted)}
+    .note{font-size:12px;color:#ffd164;background:rgba(255,209,100,0.06);padding:8px;border-radius:6px;margin:10px 0}
+    @media (max-width:880px){.parts{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>在线 JWT 解析器（仅解析，不做验证）</h1>
+    <p class="lead">说明：此页面<strong>不会上传</strong>任何内容到服务器。只在本地解析并显示 JWT 的 header、payload、signature。语⾔：简体中文。</p>
+
+    <label for="jwt">在此粘贴 JWT（单行）：</label>
+    <textarea id="jwt" placeholder="例如：eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."></textarea>
+
+    <div class="controls">
+      <button id="parseBtn" class="primary">解析</button>
+      <button id="clearBtn">清除</button>
+      <button id="loadFormatterBtn">启用美观显示（按需加载）</button>
+      <div style="flex:1"></div>
+      <div class="muted">字体：Consolas, NSimSun, monospace</div>
+    </div>
+
+    <div class="note">提示：即使未加载美观显示库，解析功能仍可使用。加载完成后，文本框会自动替换为漂亮的代码高亮与格式化显示。</div>
+
+    <div class="parts" id="parts">
+      <div class="part" id="headerPart">
+        <label>Header</label>
+        <div class="content" data-type="header"><textarea readonly id="headerText"></textarea></div>
+      </div>
+      <div class="part" id="payloadPart">
+        <label>Payload</label>
+        <div class="content" data-type="payload"><textarea readonly id="payloadText"></textarea></div>
+      </div>
+      <div class="part" id="sigPart">
+        <label>Signature</label>
+        <div class="content" data-type="signature"><textarea readonly id="sigText"></textarea></div>
+      </div>
+    </div>
+
+    <div class="footer">注意：本工具仅解析并显示 JWT 中的数据，不会验证签名或密钥。JSON 会使用 <code>JSON.stringify(obj, null, 2)</code> 的缩进（2 空格）。</div>
+  </div>
+
+  <script>
+    // 不会向任何服务器发送数据 — 所有操作在本地完成。
+    function b64UrlDecode(input) {
+      if (!input) return '';
+      // base64url -> base64
+      input = input.replace(/-/g, '+').replace(/_/g, '/');
+      // pad
+      var pad = input.length % 4;
+      if (pad === 2) input += '==';
+      else if (pad === 3) input += '=';
+      else if (pad === 1) return null; // invalid
+      try {
+        // atob returns binary string, decode utf-8
+        var binary = atob(input);
+        // percent-encode to get proper utf-8 string
+        var esc = binary.split('').map(function(c){
+          var code = c.charCodeAt(0).toString(16).padStart(2,'0');
+          return '%' + code;
+        }).join('');
+        return decodeURIComponent(esc);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function tryParseJson(text) {
+      try{
+        return JSON.parse(text);
+      }catch(e){
+        return null;
+      }
+    }
+
+    function setPart(type, text) {
+      var container = document.querySelector('[data-type="'+type+'"]');
+      var ta = container.querySelector('textarea');
+      // if there is already a code block (formatted), update it too
+      var code = container.querySelector('code');
+      if (ta) ta.value = text;
+      if (code) code.textContent = text;
+    }
+
+    function replaceWithFormatted(container, language) {
+      // container is .content element
+      var ta = container.querySelector('textarea');
+      if (!ta) return;
+      var value = ta.value;
+      // create pre>code
+      var pre = document.createElement('pre');
+      var code = document.createElement('code');
+      code.className = language ? ('language-'+language) : '';
+      code.textContent = value;
+      pre.appendChild(code);
+      container.replaceChild(pre, ta);
+      return code;
+    }
+
+    function formatIfJson(text) {
+      var obj = tryParseJson(text);
+      if (obj !== null) return JSON.stringify(obj, null, 2);
+      return text;
+    }
+
+    function parseJWT(jwt) {
+      jwt = (jwt || '').trim();
+      var parts = jwt.split('.');
+      if (parts.length < 2) return {error:'无效的 JWT，至少应包含 header 和 payload（用 "." 分隔）。'};
+      var headerB = parts[0]||'';
+      var payloadB = parts[1]||'';
+      var sig = parts.slice(2).join('.') || '';
+      var header = b64UrlDecode(headerB);
+      var payload = b64UrlDecode(payloadB);
+      if (header === null || payload === null) return {error:'Base64Url 解码失败，输入似乎不是合法的 base64url。'};
+      // JSON 格式化
+      var headerPretty = formatIfJson(header);
+      var payloadPretty = formatIfJson(payload);
+      return {header:headerPretty,payload:payloadPretty,signature:sig};
+    }
+
+    document.getElementById('parseBtn').addEventListener('click', function(){
+      var jwt = document.getElementById('jwt').value;
+      var res = parseJWT(jwt);
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      setPart('header', res.header);
+      setPart('payload', res.payload);
+      setPart('signature', res.signature);
+      // If formatter already loaded, re-highlight
+      if (window._formatterLoaded) highlightAllInParts();
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', function(){
+      document.getElementById('jwt').value='';
+      setPart('header','');setPart('payload','');setPart('signature','');
+    });
+
+    // 按需加载高亮库（Prism）并替换文本框为代码高亮视图
+    document.getElementById('loadFormatterBtn').addEventListener('click', function(){
+      if (window._formatterLoading) return;
+      if (window._formatterLoaded) return; // already
+      window._formatterLoading = true;
+      var cdnCss = 'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.css';
+      var cdnJs = 'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js';
+      var plugins = [
+        'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js',
+        'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js'
+      ];
+      // load CSS
+      var link = document.createElement('link');
+      link.rel='stylesheet';link.href=cdnCss;document.head.appendChild(link);
+      // load core script
+      var s = document.createElement('script');
+      s.src = cdnJs; s.defer = true; s.onload = function(){
+        // load plugins sequentially
+        var i = 0;
+        function next(){
+          if (i>=plugins.length){
+            window._formatterLoaded = true; window._formatterLoading=false; onFormatterReady(); return;
+          }
+          var sc = document.createElement('script'); sc.src = plugins[i++]; sc.defer=true; sc.onload=next; sc.onerror=next; document.head.appendChild(sc);
+        }
+        next();
+      };
+      s.onerror = function(){ window._formatterLoading=false; alert('加载高亮库失败（请检查网络或 CDN）。'); };
+      document.head.appendChild(s);
+      // user feedback
+      this.textContent = '正在加载...';
+    });
+
+    function onFormatterReady(){
+      // Replace each .content textarea with formatted pre>code
+      var containers = document.querySelectorAll('.content');
+      containers.forEach(function(container){
+        var ta = container.querySelector('textarea');
+        var text = ta ? ta.value : (container.querySelector('code') ? container.querySelector('code').textContent : '');
+        // try to pretty-print JSON again to ensure spacing
+        var pretty = formatIfJson(text);
+        if (ta) ta.value = pretty;
+        var code = replaceWithFormatted(container, 'json');
+        if (code) {
+          code.textContent = pretty;
+          // Prism may be exposed as window.Prism or self.Prism
+          var prism = window.Prism || (self && self.Prism);
+          if (prism && prism.highlightElement) {
+            try{prism.highlightElement(code);}catch(e){}
+          }
+        }
+      });
+      // update button text
+      var btn = document.getElementById('loadFormatterBtn');
+      btn.textContent = '已启用美观显示';
+    }
+
+    function highlightAllInParts(){
+      if (!window._formatterLoaded) return;
+      var prism = window.Prism || (self && self.Prism);
+      if (!prism || !prism.highlightElement) return;
+      document.querySelectorAll('.content code').forEach(function(code){
+        prism.highlightElement(code);
+      });
+    }
+
+    // 初始化：如果用户把长的 JWT 换行或复制带空格，自动修正
+    document.getElementById('jwt').addEventListener('input', function(){
+      // 不立刻修改，只在解析时 trim
+    });
+
+    // 方便：如果用户在按下回车也触发解析
+    document.getElementById('jwt').addEventListener('keydown', function(e){ if (e.key==='Enter' && (e.ctrlKey||e.metaKey)) { e.preventDefault(); document.getElementById('parseBtn').click(); } });
+
+    // 防止页面意外发送到服务器
+    (function(){ window.addEventListener('submit', function(e){ e.preventDefault(); }); })();
+  </script>
+</body>
+</html>

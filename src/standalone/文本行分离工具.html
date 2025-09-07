@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本行分离工具</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .input-area, .output-area {
+            display: flex;
+            gap: 20px;
+        }
+        textarea {
+            flex: 1;
+            min-height: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .output-box {
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .output-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .output-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+    <h1>文本行分离工具</h1>
+    <div class="container">
+        <div class="input-area">
+            <textarea id="inputText" placeholder="请在此输入文本，每行一句..."></textarea>
+        </div>
+        <button onclick="separateLines()">分离文本行</button>
+        <div class="output-area">
+            <div class="output-column">
+                <div class="output-title">奇数行（第1, 3, 5...行）</div>
+                <textarea id="oddLines" class="output-box" readonly></textarea>
+            </div>
+            <div class="output-column">
+                <div class="output-title">偶数行（第2, 4, 6...行）</div>
+                <textarea id="evenLines" class="output-box" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function separateLines() {
+            const inputText = document.getElementById('inputText').value;
+            const lines = inputText.split('\n').filter(line => line.trim() !== '');
+            
+            let oddLines = [];
+            let evenLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                if (i % 2 === 0) {
+                    // 奇数行（索引从0开始）
+                    oddLines.push(lines[i]);
+                } else {
+                    // 偶数行
+                    evenLines.push(lines[i]);
+                }
+            }
+            
+            document.getElementById('oddLines').value = oddLines.join('\n');
+            document.getElementById('evenLines').value = evenLines.join('\n');
+        }
+    </script>
+</body>
+</html>

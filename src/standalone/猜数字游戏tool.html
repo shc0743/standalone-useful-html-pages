@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猜数字辅助工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .feedback-area {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            min-height: 60px;
+        }
+        
+        .guess-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            color: #2c3e50;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .higher-btn {
+            background: #e74c3c;
+        }
+        
+        .higher-btn:hover {
+            background: #c0392b;
+        }
+        
+        .lower-btn {
+            background: #3498db;
+        }
+        
+        .lower-btn:hover {
+            background: #2980b9;
+        }
+        
+        .correct-btn {
+            background: #2ecc71;
+        }
+        
+        .correct-btn:hover {
+            background: #27ae60;
+        }
+        
+        .history {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #f0f0f0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .range-display {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: 500;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>猜数字辅助工具</h1>
+        
+        <div id="setup-section" class="section">
+            <label for="max-value">设置数字范围最大值：</label>
+            <input type="number" id="max-value" min="1" value="100">
+            <button id="start-btn">开始</button>
+        </div>
+        
+        <div id="game-section" class="section hidden">
+            <div class="range-display">
+                当前范围: <span id="current-range">1 - 100</span>
+            </div>
+            
+            <div class="guess-display" id="current-guess">
+                -
+            </div>
+            
+            <div class="action-buttons">
+                <button id="higher-btn" class="higher-btn" disabled>太大了</button>
+                <button id="lower-btn" class="lower-btn" disabled>太小了</button>
+                <button id="correct-btn" class="correct-btn" disabled>猜中了</button>
+            </div>
+            
+            <div class="feedback-area" id="feedback">
+                点击"开始"按钮后，我会给出第一个猜测数字。
+            </div>
+            
+            <div class="history" id="history">
+                <div class="history-item">猜数字历史记录：</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM元素
+        const setupSection = document.getElementById('setup-section');
+        const gameSection = document.getElementById('game-section');
+        const maxValueInput = document.getElementById('max-value');
+        const startBtn = document.getElementById('start-btn');
+        const currentGuessDisplay = document.getElementById('current-guess');
+        const higherBtn = document.getElementById('higher-btn');
+        const lowerBtn = document.getElementById('lower-btn');
+        const correctBtn = document.getElementById('correct-btn');
+        const feedback = document.getElementById('feedback');
+        const history = document.getElementById('history');
+        const currentRangeDisplay = document.getElementById('current-range');
+
+        // 游戏状态
+        let min = 1;
+        let max = 100;
+        let currentGuess = 0;
+        let guessCount = 0;
+        let gameStarted = false;
+
+        // 事件监听
+        startBtn.addEventListener('click', startGame);
+        higherBtn.addEventListener('click', () => handleFeedback('higher'));
+        lowerBtn.addEventListener('click', () => handleFeedback('lower'));
+        correctBtn.addEventListener('click', () => handleFeedback('correct'));
+
+        // 开始游戏
+        function startGame() {
+            const maxValue = parseInt(maxValueInput.value);
+            
+            if (isNaN(maxValue) || maxValue < 1) {
+                alert('请输入有效的最大值');
+                return;
+            }
+            
+            // 初始化游戏状态
+            min = 1;
+            max = maxValue;
+            guessCount = 0;
+            gameStarted = true;
+            
+            // 清空历史记录
+            history.innerHTML = '<div class="history-item">猜数字历史记录：</div>';
+            
+            // 更新UI
+            setupSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+            updateRangeDisplay();
+            
+            // 生成第一个猜测
+            makeGuess();
+        }
+
+        // 生成猜测
+        function makeGuess() {
+            // 使用二分法计算新猜测
+            currentGuess = Math.floor((min + max) / 2);
+            guessCount++;
+            
+            // 更新UI
+            currentGuessDisplay.textContent = currentGuess;
+            higherBtn.disabled = false;
+            lowerBtn.disabled = false;
+            correctBtn.disabled = false;
+            
+            // 添加历史记录
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.textContent = `猜测 #${guessCount}: ${currentGuess}`;
+            history.appendChild(historyItem);
+            history.scrollTop = history.scrollHeight;
+            
+            feedback.textContent = `我猜是 ${currentGuess}。这个数字是大了、小了还是正确？`;
+        }
+
+        // 处理用户反馈
+        function handleFeedback(feedbackType) {
+            if (!gameStarted) return;
+            
+            // 根据反馈调整范围
+            switch (feedbackType) {
+                case 'higher':
+                    max = currentGuess - 1;
+                    feedback.textContent = `好的，数字比 ${currentGuess} 小。`;
+                    break;
+                case 'lower':
+                    min = currentGuess + 1;
+                    feedback.textContent = `好的，数字比 ${currentGuess} 大。`;
+                    break;
+                case 'correct':
+                    feedback.textContent = `恭喜！数字就是 ${currentGuess}。总共用了 ${guessCount} 次猜测。`;
+                    higherBtn.disabled = true;
+                    lowerBtn.disabled = true;
+                    correctBtn.disabled = true;
+                    gameStarted = false;
+                    return;
+            }
+            
+            // 检查是否还有可能的值
+            if (min > max) {
+                feedback.textContent = '出错了！根据你的反馈，没有数字符合所有条件。你可能记错了反馈。';
+                higherBtn.disabled = true;
+                lowerBtn.disabled = true;
+                correctBtn.disabled = true;
+                gameStarted = false;
+                return;
+            }
+            
+            // 更新范围显示
+            updateRangeDisplay();
+            
+            // 生成下一个猜测
+            makeGuess();
+        }
+
+        // 更新范围显示
+        function updateRangeDisplay() {
+            currentRangeDisplay.textContent = `${min} - ${max}`;
+        }
+    </script>
+</body>
+</html>

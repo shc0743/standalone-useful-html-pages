@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>图片背景上色器（PNG 透明背景填色）</title>
+  <style>
+    :root { --radius: 14px; }
+    html, body { height: 100%; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      margin: 0; padding: 24px; background: #f8fafc; color: #0f172a;
+    }
+    .app { max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin: 0 0 16px; }
+    .card { background: white; border-radius: var(--radius); box-shadow: 0 10px 25px rgba(2,6,23,.06); padding: 18px; }
+    .row { display: grid; gap: 12px; }
+    .controls { display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+    .picker {
+      display: grid; gap: 10px; grid-template-columns: 1fr;
+      border: 1px dashed #cbd5e1; border-radius: var(--radius); padding: 14px;
+      background: #f1f5f9;
+    }
+
+    .dropzone {
+      border: 2px dashed #94a3b8; border-radius: var(--radius);
+      padding: 22px; text-align: center; background: #ffffff;
+      transition: background .2s, border-color .2s, transform .05s ease-in-out;
+      cursor: pointer; user-select: none;
+    }
+    .dropzone.dragover { background: #eef2ff; border-color: #6366f1; transform: scale(0.997); }
+    .dropzone small { color: #475569; display: block; margin-top: 8px; }
+    #useFallbackSelect { text-decoration: none; color: blue; margin-top: 10px; font-size: small; display: block; }
+    #useFallbackSelect::before { content: "或"; color: gray; }
+
+    .bg-options { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; }
+    .bg-options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .bg-options input[type="color"] { width: 40px; height: 28px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      appearance: none; border: 0; background: #0ea5e9; color: white; padding: 10px 16px;
+      border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing: .2px;
+      box-shadow: 0 6px 16px rgba(14,165,233,.25);
+    }
+    button[disabled] { background: #a3a3a3; box-shadow: none; cursor: not-allowed; }
+
+    figure { margin: 18px 0 6px; }
+    figure img { max-width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: 0 4px 16px rgba(2,6,23,.08); }
+    .download { margin-top: 8px; display: inline-block; }
+    .download a { color: #0ea5e9; font-weight: 600; text-decoration: none; }
+    .hint { color: #64748b; font-size: .875rem; margin-top: 6px; }
+    .meta { color: #475569; font-size: .9rem; }
+
+    @media (min-width: 720px) {
+      .controls { grid-template-columns: 1fr; }
+      .row.two { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>图片背景上色器（处理透明 PNG）</h1>
+
+    <div class="card row">
+      <div class="picker">
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖放或点击选择 PNG 文件">
+          <strong>拖放 PNG 到此处</strong>
+          <small>或点击/回车选择文件</small>
+          <a href="javascript:void(0)" id="useFallbackSelect">使用备用选择器</a>
+          <input id="fileInput" type="file" accept="image/png" hidden />
+        </div>
+
+        <div class="row two">
+          <div class="row">
+            <div class="meta" id="fileMeta">未选择文件</div>
+            <div class="bg-options" role="radiogroup" aria-label="背景色">
+              <span>背景色：</span>
+              <label><input type="radio" name="bg" value="#ffffff" id="bgWhite" checked>白色</label>
+              <label><input type="radio" name="bg" value="#000000" id="bgBlack">黑色</label>
+              <label><input type="radio" name="bg" value="#808080" id="bgGray">灰色</label>
+              <label>
+                <input type="radio" name="bg" value="custom" id="bgCustom">
+                自定义：<input type="color" id="customColor" value="#ffffff" aria-label="自定义颜色" disabled>
+              </label>
+            </div>
+            <div class="actions">
+              <button id="runBtn" disabled>执行</button>
+              <button id="resetBtn" type="button">清空</button>
+            </div>
+          </div>
+          <div>
+            <figure>
+              <img id="preview" alt="处理后的图片预览" hidden />
+            </figure>
+            <div class="download" id="downloadWrap" hidden>
+              <a id="downloadLink" download>下载处理后的图片</a>
+              <div class="hint">在移动设备上可长按图片进行保存（某些环境下载不可用）。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 元信息与状态 ==========
+    const state = {
+      file: null,
+      objectURL: null,      // 原始图像 ObjectURL
+      resultURL: null,      // 结果图像 ObjectURL
+      fileNameBase: null,
+    };
+
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const dropzone = $('#dropzone');
+    const useFallbackSelect = $('#useFallbackSelect');
+    const fileInput = $('#fileInput');
+    const fileMeta = $('#fileMeta');
+    const runBtn = $('#runBtn');
+    const resetBtn = $('#resetBtn');
+    const preview = $('#preview');
+    const downloadWrap = $('#downloadWrap');
+    const downloadLink = $('#downloadLink');
+
+    const bgRadios = $$('input[name="bg"]');
+    const bgCustom = $('#bgCustom');
+    const customColor = $('#customColor');
+
+    // ========== 工具函数 ==========
+    function setFile(file) {
+      if (!file) return;
+      //// 仅接受 PNG
+      //if (!/^image\/png$/i.test(file.type)) {
+      //  alert('仅支持 PNG 文件。');
+      //  return;
+      //}
+      cleanupObjectURL(state.objectURL);
+      state.file = file;
+      state.objectURL = URL.createObjectURL(file);
+      const base = (file.name || 'image.png').replace(/\.[^.]+$/, '');
+      state.fileNameBase = base;
+      fileMeta.textContent = `已选择：${file.name}（${formatBytes(file.size)}）`;
+      runBtn.disabled = false;
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return '';
+      const k = 1024; const units = ['B','KB','MB','GB'];
+      const i = Math.min(Math.floor(Math.log(bytes)/Math.log(k)), units.length-1);
+      return `${(bytes/Math.pow(k,i)).toFixed(2)}${units[i]}`;
+    }
+
+    function getSelectedColor() {
+      const selected = bgRadios.find(r => r.checked);
+      if (!selected) return '#ffffff';
+      if (selected.value === 'custom') return customColor.value || '#ffffff';
+      return selected.value;
+    }
+
+    function toggleCustom(enable) {
+      customColor.disabled = !enable;
+      if (enable) customColor.focus();
+    }
+
+    function cleanupObjectURL(url) {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function clearResult() {
+      cleanupObjectURL(state.resultURL);
+      state.resultURL = null;
+      preview.removeAttribute('src');
+      preview.hidden = true;
+      downloadWrap.hidden = true;
+    }
+
+    function clearAll() {
+      clearResult();
+      cleanupObjectURL(state.objectURL);
+      state.objectURL = null;
+      state.file = null;
+      state.fileNameBase = null;
+      fileMeta.textContent = '未选择文件';
+      runBtn.disabled = true;
+      fileInput.value = '';
+    }
+
+    // ========== 事件：文件选择 / 拖放 ==========
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    useFallbackSelect.addEventListener('click', () => {
+        fileInput.accept = '';
+        useFallbackSelect.remove();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      setFile(file);
+    });
+
+    ;['dragenter','dragover'].forEach(type => {
+      dropzone.addEventListener(type, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); });
+    });
+    ;['dragleave','drop'].forEach(type => {
+      dropzone.addEventListener(type, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); });
+    });
+    dropzone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      setFile(file);
+    });
+
+    // ========== 背景色选择 ==========
+    bgRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        toggleCustom(bgCustom.checked);
+      });
+    });
+
+    // 默认自定义颜色为 #ffffff，但初始未选中
+    toggleCustom(false);
+
+    // ========== 执行处理 ==========
+    runBtn.addEventListener('click', async () => {
+      if (!state.file) return;
+      try {
+        clearResult();
+
+        // 读取图片（注意：通过 canvas 导出 PNG 时，原始 PNG 的元数据通常不会被保留）
+        const img = new Image();
+        img.src = state.objectURL;
+        await img.decode();
+
+        // 创建临时画布
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+
+        // 填充背景色
+        const color = getSelectedColor();
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制图片到画布（覆盖在背景色之上）
+        ctx.drawImage(img, 0, 0);
+
+        // 读取画布数据 -> Blob（PNG）
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('导出 PNG 失败');
+
+        // 销毁临时画布
+        ctx.canvas.width = 0; // 释放显存
+        // 从 DOM 移除
+        canvas.remove();
+
+        // 展示 & 下载
+        const resultURL = URL.createObjectURL(blob);
+        state.resultURL = resultURL;
+        preview.src = resultURL;
+        preview.hidden = false;
+
+        const dlName = `${state.fileNameBase || 'image'}_filled.png`;
+        downloadLink.href = resultURL;
+        downloadLink.setAttribute('download', dlName);
+        downloadLink.textContent = `下载：${dlName}`;
+        downloadWrap.hidden = false;
+      } catch (err) {
+        console.error(err);
+        alert('处理失败：' + (err && err.message ? err.message : '未知错误'));
+      }
+    });
+
+    resetBtn.addEventListener('click', clearAll);
+
+    // 页面卸载时清理 URL
+    window.addEventListener('beforeunload', () => {
+      cleanupObjectURL(state.resultURL);
+      cleanupObjectURL(state.objectURL);
+    });
+  </script>
+</body>
+</html>

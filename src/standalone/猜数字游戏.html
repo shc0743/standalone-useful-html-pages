@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安全猜数字游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            z-index: -1;
+        }
+
+        .title {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            color: white;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1.1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        button {
+            padding: 14px 25px;
+            background: linear-gradient(45deg, #FF416C, #FF4B2B);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .info {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            color: white;
+        }
+
+        .info h3 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info p {
+            line-height: 1.6;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .feedback {
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+            font-weight: 500;
+            font-size: 1.2rem;
+            background: rgba(0, 0, 0, 0.2);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .attempts {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .attempt {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-weight: bold;
+        }
+
+        .attempt.used {
+            background: rgba(255, 75, 43, 0.7);
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(46, 204, 113, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .restart-btn {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .win {
+            animation: pulse 2s infinite;
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+        }
+
+        .lose {
+            background: linear-gradient(45deg, #FF416C, #FF4B2B);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(17, 153, 142, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(17, 153, 142, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(17, 153, 142, 0); }
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .instructions ul {
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 500px) {
+            .game-card {
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-card">
+            <h1 class="title">猜数字游戏</h1>
+            
+            <div id="setup-screen">
+                <div class="section">
+                    <label for="max-value">设置数字范围最大值：</label>
+                    <div class="input-group">
+                        <input type="number" id="max-value" min="10" max="1000000" value="100" required>
+                        <button id="start-btn">开始游戏</button>
+                    </div>
+                    <p class="instructions">
+                        设置一个最大值（10-1,000,000,000），我们将生成一个1到该值之间的随机数。
+                        <br>使用安全的加密API生成随机数，确保公平性。
+                    </p>
+                </div>
+            </div>
+            
+            <div id="game-screen" class="hidden">
+                <form id="guess-form">
+                    <div class="section">
+                        <label for="guess-input">输入你的猜测（1 - <span id="max-value-display">100</span>）：</label>
+                        <div class="input-group">
+                            <input type="number" id="guess-input" min="1" required>
+                            <button type="submit">提交猜测</button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="feedback" id="feedback">
+                    请输入你的第一次猜测
+                </div>
+                
+                <div class="info">
+                    <h3>游戏信息 <span class="security-badge">安全加密</span></h3>
+                    <p>剩余尝试次数: <span id="remaining-attempts">5</span></p>
+                    <p>最大尝试次数: <span id="max-attempts">5</span></p>
+                    
+                    <div class="attempts" id="attempts-display">
+                        <!-- 尝试次数点将在这里动态生成 -->
+                    </div>
+                </div>
+                
+                <button id="restart-btn" class="restart-btn">重新开始游戏</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 检查crypto API支持
+        if (!window.crypto || !crypto.getRandomValues) {
+            alert('错误：您的浏览器不支持安全的加密API。游戏无法运行。');
+            document.querySelector('.game-card').innerHTML = `
+                <h1 class="title">浏览器不兼容</h1>
+                <div class="info">
+                    <p>您的浏览器不支持安全的加密API（crypto.getRandomValues），无法运行此游戏。</p>
+                    <p>请使用现代浏览器如Chrome、Firefox、Edge或Safari的最新版本。</p>
+                </div>
+            `;
+            throw new Error('Browser does not support crypto API');
+        }
+
+        // DOM元素
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const maxValueInput = document.getElementById('max-value');
+        const maxValueDisplay = document.getElementById('max-value-display');
+        const guessForm = document.getElementById('guess-form');
+        const guessInput = document.getElementById('guess-input');
+        const feedback = document.getElementById('feedback');
+        const remainingAttempts = document.getElementById('remaining-attempts');
+        const maxAttemptsDisplay = document.getElementById('max-attempts');
+        const restartBtn = document.getElementById('restart-btn');
+        const attemptsDisplay = document.getElementById('attempts-display');
+
+        // 游戏状态
+        let maxValue = 100;
+        let secretNumber = 0;
+        let maxAttempts = 0;
+        let remaining = 0;
+        let attempts = [];
+
+        // 启动游戏
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        guessForm.addEventListener('submit', handleGuess);
+        restartBtn.addEventListener('click', resetGame);
+
+        // 设置最大值时按回车键也可以开始游戏
+        maxValueInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                startGame();
+            }
+        });
+
+        // 开始游戏函数
+        function startGame() {
+            // 验证输入
+            maxValue = parseInt(maxValueInput.value);
+            if (isNaN(maxValue) || maxValue < 10 || maxValue > 1000000000) {
+                alert('请输入10到1,000,000,000之间的有效数字');
+                return;
+            }
+
+            // 计算最大尝试次数
+            maxAttempts = Math.ceil(Math.log2(maxValue)) + 2;
+            remaining = maxAttempts;
+
+            // 生成安全随机数
+            const array = new Uint32Array(1);
+            crypto.getRandomValues(array);
+            secretNumber = 1 + (array[0] % maxValue);
+
+            // 更新UI
+            maxValueDisplay.textContent = maxValue;
+            remainingAttempts.textContent = remaining;
+            maxAttemptsDisplay.textContent = maxAttempts;
+            
+            // 创建尝试点
+            attemptsDisplay.innerHTML = '';
+            for (let i = 0; i < maxAttempts; i++) {
+                const attemptDot = document.createElement('div');
+                attemptDot.className = 'attempt';
+                attemptDot.textContent = i + 1;
+                attemptsDisplay.appendChild(attemptDot);
+            }
+
+            // 切换屏幕
+            setupScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // 聚焦到输入框
+            guessInput.focus();
+            
+            // 初始反馈
+            feedback.textContent = `我已经想好了一个1到${maxValue}之间的数字。开始猜吧！`;
+            feedback.className = 'feedback';
+        }
+
+        // 处理猜测
+        function handleGuess(e) {
+            e.preventDefault();
+            
+            // 获取用户输入
+            const userGuess = parseInt(guessInput.value);
+            
+            // 验证输入
+            if (isNaN(userGuess)) {
+                feedback.textContent = '请输入一个有效的数字';
+                return;
+            }
+            
+            if (userGuess < 1 || userGuess > maxValue) {
+                feedback.textContent = `请输入1到${maxValue}之间的数字`;
+                return;
+            }
+            
+            // 记录尝试
+            attempts.push(userGuess);
+            const currentAttempt = attempts.length;
+            
+            // 更新尝试点
+            if (currentAttempt <= maxAttempts) {
+                attemptsDisplay.children[currentAttempt - 1].classList.add('used');
+            }
+            
+            // 减少剩余尝试次数
+            remaining--;
+            remainingAttempts.textContent = remaining;
+            
+            // 检查猜测
+            if (userGuess === secretNumber) {
+                feedback.textContent = `恭喜！你猜对了！数字就是 ${secretNumber}。`;
+                feedback.className = 'feedback win';
+                guessInput.disabled = true;
+                return;
+            }
+            
+            // 提供提示
+            if (userGuess < secretNumber) {
+                feedback.textContent = `太小了！尝试更大的数字。`;
+            } else {
+                feedback.textContent = `太大了！尝试更小的数字。`;
+            }
+            
+            // 检查游戏是否结束
+            if (remaining <= 0) {
+                feedback.textContent = `游戏结束！正确答案是 ${secretNumber}。`;
+                feedback.className = 'feedback lose';
+                guessInput.disabled = true;
+            }
+            
+            // 清空输入框并聚焦
+            guessInput.value = '';
+            guessInput.focus();
+        }
+
+        // 重置游戏
+        function resetGame() {
+            // 重置游戏状态
+            attempts = [];
+            guessInput.disabled = false;
+            
+            // 切换屏幕
+            gameScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+            
+            // 聚焦到最大值输入框
+            maxValueInput.focus();
+        }
+    </script>
+</body>
+</html>

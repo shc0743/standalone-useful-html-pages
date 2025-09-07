@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office 文件安全预览工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #106ebe;
+        }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Office 文件安全预览</h1>
+    <div class="container">
+        <label for="file-url">输入 Office 文件 URL（支持 .docx, .xlsx, .pptx）:</label>
+        <input type="text" id="file-url" placeholder="https://example.com/path/to/file.docx">
+        <button id="preview-btn">预览文件</button>
+        <div id="error-message" class="error"></div>
+    </div>
+    <div id="preview-container"></div>
+
+    <script>
+        document.getElementById('preview-btn').addEventListener('click', function() {
+            const fileUrl = document.getElementById('file-url').value.trim();
+            const errorElement = document.getElementById('error-message');
+            const previewContainer = document.getElementById('preview-container');
+
+            // 清空错误和之前的预览
+            errorElement.textContent = '';
+            previewContainer.innerHTML = '';
+
+            if (!fileUrl) {
+                errorElement.textContent = '请输入文件 URL';
+                return;
+            }
+
+            // 验证用户输入的URL是否合法
+            let userProvidedUrl;
+            try {
+                userProvidedUrl = new URL(fileUrl);
+            } catch (e) {
+                errorElement.textContent = '无效的 URL 格式（请包含 http:// 或 https://）';
+                return;
+            }
+
+
+            // 安全构建预览URL（使用URL API自动处理编码）
+            const previewUrl = new URL('https://view.officeapps.live.com/op/embed.aspx');
+            previewUrl.searchParams.set('src', fileUrl); // 自动完成URL编码
+
+            // 创建 iframe 预览
+            const iframe = document.createElement('iframe');
+            iframe.src = previewUrl.toString(); // 获取完整的安全URL
+            iframe.setAttribute('frameborder', '0');
+            previewContainer.appendChild(iframe);
+        });
+
+        // 允许通过按 Enter 键触发预览
+        document.getElementById('file-url').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('preview-btn').click();
+            }
+        });
+    </script>
+</body>
+</html>

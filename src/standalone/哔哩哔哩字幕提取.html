@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哔哩哔哩字幕工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #FB7299;
+            text-align: center;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .options {
+            margin: 15px 0;
+        }
+        button {
+            background-color: #FB7299;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #FF85AD;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        .download-btn {
+            margin-top: 10px;
+            background-color: #23ADE5;
+        }
+        .download-btn:hover {
+            background-color: #4ABCF2;
+        }
+    </style>
+</head>
+<body>
+    <h1>哔哩哔哩字幕工具</h1>
+    <p>注：目前支持 https://aisubtitle.hdslb.com/bfs/ai_subtitle/prod/...?auth_key=--- 格式的字幕文件</p>
+    <textarea id="subtitleInput" placeholder="请在此粘贴哔哩哔哩字幕JSON..."></textarea>
+    
+    <div class="options">
+        <label>
+            <input type="radio" name="action" value="extract" checked> 提取字幕文本
+        </label>
+        <label>
+            <input type="radio" name="action" value="convert"> 转为 .lrc 文件
+        </label>
+    </div>
+    
+    <button id="processBtn">执行</button>
+    
+    <div id="result"></div>
+    <button id="downloadBtn" class="download-btn" style="display: none;">下载结果</button>
+    
+    <script>
+        document.getElementById('processBtn').addEventListener('click', function() {
+            const inputText = document.getElementById('subtitleInput').value.trim();
+            if (!inputText) {
+                alert('请输入字幕JSON内容');
+                return;
+            }
+            
+            try {
+                const subtitleData = JSON.parse(inputText);
+                if (!subtitleData.body || !Array.isArray(subtitleData.body)) {
+                    throw new Error('无效的字幕格式：缺少body数组');
+                }
+                
+                const action = document.querySelector('input[name="action"]:checked').value;
+                let result = '';
+                
+                if (action === 'extract') {
+                    // 提取字幕文本，每行一句
+                    result = subtitleData.body.map(item => item.content).join('\n');
+                } else {
+                    // 转换为.lrc格式
+                    result = subtitleData.body.map(item => {
+                        const startTime = formatTime(item.from);
+                        return `[${startTime}] ${item.content}`;
+                    }).join('\n');
+                }
+                
+                document.getElementById('result').textContent = result;
+                document.getElementById('downloadBtn').style.display = 'inline-block';
+                
+                // 设置下载功能
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.onclick = function() {
+                    const blob = new Blob([result], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = action === 'extract' ? 'subtitles.txt' : 'subtitles.lrc';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+                
+            } catch (error) {
+                document.getElementById('result').textContent = '错误: ' + error.message;
+                document.getElementById('downloadBtn').style.display = 'none';
+            }
+        });
+        
+        // 将秒数格式化为[lrc时间格式]([mm:ss.xx])
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            const formattedSecs = secs.toFixed(2).padStart(5, '0');
+            return `${minutes.toString().padStart(2, '0')}:${formattedSecs}`;
+        }
+    </script>
+</body>
+</html>

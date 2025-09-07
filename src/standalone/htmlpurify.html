@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML内容清理工具</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Consolas, NSimsun, monospace;
+        }
+        #app {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 15px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+        textarea {
+            flex: 1;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: Consolas, NSimsun, monospace;
+            resize: none;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>HTML内容清理工具</h1>
+        
+        <textarea id="htmlInput" placeholder="粘贴HTML内容到这里..."></textarea>
+        
+        <div class="controls">
+            <button id="cleanButton">清理HTML</button>
+            
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeStyle" checked>
+                <label for="removeStyle">移除&lt;style&gt;</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeLink" checked>
+                <label for="removeLink">移除&lt;link&gt;</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeSvg" checked>
+                <label for="removeSvg">移除SVG</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeScript" checked>
+                <label for="removeScript">移除&lt;script&gt;</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeComments" checked>
+                <label for="removeComments">移除注释</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="removeMeta" checked>
+                <label for="removeMeta">移除&lt;meta&gt;</label>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div>字符数: <span id="charCount">0</span></div>
+            <div>节省的Token估计: <span id="tokenEstimate">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('cleanButton').addEventListener('click', function() {
+            const inputHtml = document.getElementById('htmlInput').value;
+            const cleanedHtml = cleanHtml(inputHtml);
+            document.getElementById('htmlInput').value = cleanedHtml;
+            updateStats(cleanedHtml);
+        });
+
+        // 初始统计
+        document.getElementById('htmlInput').addEventListener('input', function() {
+            updateStats(this.value);
+        });
+
+        function updateStats(html) {
+            const charCount = html.length;
+            // 粗略估计：1 token ≈ 4个英文字符或2个中文字符
+            const tokenEstimate = Math.ceil(charCount / 3);
+            document.getElementById('charCount').textContent = charCount;
+            document.getElementById('tokenEstimate').textContent = tokenEstimate;
+        }
+
+        function cleanHtml(html) {
+            // 创建一个虚拟的DOM元素来安全地解析HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 获取用户选择的清理选项
+            const removeStyle = document.getElementById('removeStyle').checked;
+            const removeLink = document.getElementById('removeLink').checked;
+            const removeSvg = document.getElementById('removeSvg').checked;
+            const removeScript = document.getElementById('removeScript').checked;
+            const removeComments = document.getElementById('removeComments').checked;
+            const removeMeta = document.getElementById('removeMeta').checked;
+            
+            // 移除<style>标签
+            if (removeStyle) {
+                const styles = doc.querySelectorAll('style');
+                styles.forEach(style => style.remove());
+            }
+            
+            // 移除<link>标签
+            if (removeLink) {
+                const links = doc.querySelectorAll('link[rel]');
+                links.forEach(link => link.remove());
+            }
+            
+            // 移除SVG相关标签
+            if (removeSvg) {
+                const svgs = doc.querySelectorAll('svg');
+                svgs.forEach(svg => svg.remove());
+            }
+            
+            // 移除<script>标签
+            if (removeScript) {
+                const scripts = doc.querySelectorAll('script');
+                scripts.forEach(script => script.remove());
+            }
+            
+            // 移除HTML注释
+            if (removeComments) {
+                const walker = document.createTreeWalker(
+                    doc, 
+                    NodeFilter.SHOW_COMMENT, 
+                    null, 
+                    false
+                );
+                let node;
+                const comments = [];
+                while(node = walker.nextNode()) {
+                    comments.push(node);
+                }
+                comments.forEach(comment => comment.remove());
+            }
+            
+            // 移除<meta>标签
+            if (removeMeta) {
+                const metas = doc.querySelectorAll('meta');
+                metas.forEach(meta => meta.remove());
+            }
+            
+            // 返回清理后的HTML
+            return doc.documentElement.innerHTML;
+        }
+    </script>
+</body>
+</html>
